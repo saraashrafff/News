@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:news/app_theme.dart';
 import 'package:news/home_screen.dart';
 
 void main() {
@@ -14,6 +15,9 @@ class NewsApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       routes: {HomeScreen.routeName: (_) => HomeScreen()},
       initialRoute: HomeScreen.routeName,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
     );
   }
 }
