@@ -41,9 +41,13 @@ class NewsItem extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'By : ${news.author ?? news.source!.name}',
-                style: textTheme.labelSmall,
+              Expanded(
+                child: Text(
+                  'By : ${news.author ?? news.source!.name}',
+                  style: textTheme.labelSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Text(
                 timeago.format(news.publishedAt!),

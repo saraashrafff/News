@@ -16,13 +16,21 @@ class APIService {
     return SourcesResponse.fromJson(json);
   }
 
-  static Future<NewsResponse> getNews(String sourceId) async {
+  static Future<NewsResponse> getNews(String sourceId, {int page = 1}) async {
     Uri uri = Uri.https(APIConstants.baseURL, APIConstants.newsEndPoint, {
       'apiKey': APIConstants.apiKey,
       'sources': sourceId,
+      'page': page.toString(), // <-- simple pagination
+      'pageSize': '5', // <-- 5 items per page
     });
+
     http.Response response = await http.get(uri);
-    Map<String, dynamic> json = jsonDecode(response.body);
-    return NewsResponse.fromJson(json);
+
+    if (response.statusCode == 200) {
+      Map<String, dynamic> json = jsonDecode(response.body);
+      return NewsResponse.fromJson(json);
+    } else {
+      throw Exception('Failed to fetch news');
+    }
   }
 }
