@@ -12,8 +12,9 @@ import 'package:provider/provider.dart';
 
 class NewsView extends StatefulWidget {
   String categoryId;
+  final Function(List<News>) onNewsLoaded;
+  NewsView({required this.categoryId, required this.onNewsLoaded});
 
-  NewsView({required this.categoryId});
   @override
   State<NewsView> createState() => _NewsViewState();
 }
@@ -60,6 +61,7 @@ class _NewsViewState extends State<NewsView> {
       } else {
         currentPage++;
       }
+      widget.onNewsLoaded(newsViewModel.newsList);
       setState(() {});
     });
   }
