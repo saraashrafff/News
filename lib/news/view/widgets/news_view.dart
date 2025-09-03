@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:news/news/view_model/news_states.dart';
 import 'package:news/shared/app_theme.dart';
 import 'package:news/news/data/models/news.dart';
 import 'package:news/news/view/widgets/news_item.dart';
 import 'package:news/news/view_model/news_view_model.dart';
 import 'package:news/sources/data/models/source.dart';
 import 'package:news/sources/view/widgets/tab_item.dart';
+import 'package:news/sources/view_model/sources_states.dart';
 import 'package:news/sources/view_model/sources_view_model.dart';
 import 'package:news/shared/widgets/error_indicator.dart';
 import 'package:news/shared/widgets/loading_indicator.dart';
-import 'package:provider/provider.dart';
 
 class NewsView extends StatefulWidget {
   String categoryId;
+  final String searchQuery;
 
-  NewsView({required this.categoryId});
+  NewsView({required this.categoryId, this.searchQuery = ''});
   @override
   State<NewsView> createState() => _NewsViewState();
 }
@@ -21,7 +24,8 @@ class NewsView extends StatefulWidget {
 class _NewsViewState extends State<NewsView> {
   int currentIndex = 0;
   int currentPage = 1;
-  bool hasMore = true;
+  bool isLoadingMore = false;
+
   final ScrollController _scrollController = ScrollController();
 
   List<Source> sources = [];
@@ -32,58 +36,55 @@ class _NewsViewState extends State<NewsView> {
   void initState() {
     super.initState();
 
-    // Scroll listener لتحميل الصفحات الجديدة
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
-              _scrollController.position.maxScrollExtent - 200 &&
-          !newsViewModel.isLoading &&
-          hasMore) {
-        loadMore();
+          _scrollController.position.maxScrollExtent - 200) {
+        final currentState = newsViewModel.state;
+        if (currentState is GetNewsSuccess && currentState.hasMore) {
+          loadMore();
+        }
       }
-    });
-  }
-
-  void loadMore() {
-    if (sources.isEmpty) return;
-
-    String sourceId = sources[currentIndex].id!;
-    print("⬇️ Loading page $currentPage for source $sourceId");
-
-    newsViewModel.getNews(sourceId, page: currentPage).then((fetchedNews) {
-      print(
-        "✅ Page $currentPage loaded, fetched ${fetchedNews.length} news items",
-      );
-
-      if (fetchedNews.length < 5) {
-        hasMore = false;
-        print("⚠️ No more news available for this source.");
-      } else {
-        currentPage++;
-      }
-      setState(() {});
     });
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => sourcesViewModel..getSources(widget.categoryId),
-      child: Consumer<SourcesViewModel>(
-        builder: (_, viewModel, __) {
-          if (viewModel.isLoading) {
-            return LoadingIndicator();
-          } else if (viewModel.errorMessage != null) {
-            return ErrorIndicator(viewModel.errorMessage!);
-          } else {
-            sources = viewModel.sources;
+  void dispose() {
+    _scrollController.dispose();
+    newsViewModel.close();
 
-            // fetch أول صفحة من الأخبار لأول source
-            if (newsViewModel.newsList.isEmpty && sources.isNotEmpty) {
+    super.dispose();
+  }
+
+  void loadMore() async {
+    if (sources.isEmpty || isLoadingMore) return;
+
+    isLoadingMore = true;
+    String sourceId = sources[currentIndex].id!;
+    print("⬇️ Loading page $currentPage for source $sourceId");
+
+    await newsViewModel.getNews(sourceId, page: currentPage);
+    currentPage++;
+    isLoadingMore = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sourcesViewModel..getSources(widget.categoryId),
+      child: BlocBuilder<SourcesViewModel, SourcesState>(
+        builder: (ctx, state) {
+          BlocProvider.of<SourcesViewModel>(ctx);
+          if (state is GetSourcesLoading) {
+            return LoadingIndicator();
+          } else if (state is GetSourcesError) {
+            return ErrorIndicator(state.messege);
+          } else if (state is GetSourcesSuccess) {
+            sources = state.sources;
+            if (sources.isNotEmpty && newsViewModel.state is NewsInitial) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 loadMore();
               });
             }
-
             return Column(
               children: [
                 DefaultTabController(
@@ -102,28 +103,34 @@ class _NewsViewState extends State<NewsView> {
                           ),
                         )
                         .toList(),
-                    onTap: (index) {
+                    onTap: (index) async {
                       if (currentIndex == index) return;
+
                       currentIndex = index;
                       currentPage = 1;
-                      hasMore = true;
+                      isLoadingMore = false;
                       newsViewModel.clearNews();
-                      loadMore();
+
+                      await newsViewModel.getNews(
+                        sources[currentIndex].id!,
+                        page: currentPage,
+                      );
+                      currentPage++;
                       setState(() {});
                     },
                   ),
                 ),
                 Expanded(
-                  child: ChangeNotifierProvider.value(
+                  child: BlocProvider.value(
                     value: newsViewModel,
-                    child: Consumer<NewsViewModel>(
-                      builder: (_, viewModel, __) {
-                        if (viewModel.isLoading && viewModel.newsList.isEmpty) {
+                    child: BlocBuilder<NewsViewModel, NewsState>(
+                      builder: (context, state) {
+                        if (state is GetNewsLoading) {
                           return LoadingIndicator();
-                        } else if (viewModel.errorMessage != null) {
-                          return ErrorIndicator(viewModel.errorMessage!);
-                        } else {
-                          List<News> newsList = viewModel.newsList;
+                        } else if (state is GetNewsError) {
+                          return ErrorIndicator();
+                        } else if (state is GetNewsSuccess) {
+                          List<News> newsList = state.newsList;
                           return ListView.separated(
                             controller: _scrollController,
                             padding: EdgeInsets.only(
@@ -136,7 +143,7 @@ class _NewsViewState extends State<NewsView> {
                                 return NewsItem(news: newsList[index]);
                               } else {
                                 return Center(
-                                  child: hasMore
+                                  child: state.hasMore
                                       ? Padding(
                                           padding: EdgeInsets.all(16),
                                           child: LoadingIndicator(),
@@ -160,6 +167,8 @@ class _NewsViewState extends State<NewsView> {
                             separatorBuilder: (_, __) => SizedBox(height: 16),
                             itemCount: newsList.length + 1,
                           );
+                        } else {
+                          return SizedBox();
                         }
                       },
                     ),
@@ -167,6 +176,8 @@ class _NewsViewState extends State<NewsView> {
                 ),
               ],
             );
+          } else {
+            return SizedBox();
           }
         },
       ),
