@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:news/categories/view/widgets/category_item.dart';
-import 'package:news/models/category_model.dart';
+import 'package:news/categories/data/models/category_model.dart';
 
 class CategoriesView extends StatelessWidget {
   void Function(CategoryModel) onCatergorySelected;

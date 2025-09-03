@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:news/categories/data/models/category_model.dart';
 import 'package:news/categories/view/widgets/categories_view.dart';
 import 'package:news/home/view/widgets/home_drawer.dart';
-import 'package:news/models/category_model.dart';
 import 'package:news/news/data/models/news.dart';
 import 'package:news/news/view/widgets/news_item.dart';
 import 'package:news/news/view/widgets/news_view.dart';
@@ -50,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: !isSearching
             ? Text(selectedCategory == null ? 'Home' : selectedCategory!.name)
             : TextField(
+                cursorColor: AppTheme.white,
                 style: Theme.of(context).textTheme.titleSmall,
                 controller: searchController,
                 autofocus: true,
