@@ -1,43 +1,44 @@
-import 'package:flutter/widgets.dart';
-import 'package:news/news/data/data_sources/news_data_source.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:news/news/data/models/news.dart';
-import 'package:news/news/data/models/news_response.dart';
+import 'package:news/news/data/repositories/news_repository.dart';
+import 'package:news/news/view_model/news_states.dart';
+import 'package:news/shared/service_locator.dart';
 
-class NewsViewModel with ChangeNotifier {
-  NewsDataSource dataSource = NewsDataSource();
-  bool isLoading = false;
-  List<News> newsList = [];
-  String? errorMessage; // صححت الاسم
+class NewsViewModel extends Cubit<NewsState> {
+  late NewsRepository repository;
+  NewsViewModel() : super(NewsInitial()) {
+    repository = NewsRepository(ServiceLocator.newsDataSource);
+  }
 
-  Future<List<News>> getNews(String sourceId, {int page = 1}) async {
-    isLoading = true;
-    errorMessage = null; // إعادة تعيين الرسالة القديمة
-    notifyListeners();
+  Future<void> getNews(String sourceId, {int page = 1}) async {
+    // لو أول صفحة -> نعرض Loading
+    if (page == 1) {
+      emit(GetNewsLoading());
+    }
 
     try {
-      NewsResponse response = await dataSource.getNews(sourceId, page: page);
-      if (response.status == 'ok' && response.newsList != null) {
-        if (page == 1) {
-          newsList = response.newsList!;
-        } else {
-          newsList.addAll(response.newsList!);
-        }
-        return response.newsList!;
-      } else {
-        errorMessage = 'Failed to load news';
-        return [];
+      // لو في أخبار موجودة قبل كده -> ناخد نسخة منها
+      List<News> currentList = [];
+      if (state is GetNewsSuccess) {
+        currentList = List.from((state as GetNewsSuccess).newsList);
       }
+
+      // API Request
+      List<News> fetchedNews = await repository.getNews(sourceId, page: page);
+
+      // ضيف الجديد على القديم
+      currentList.addAll(fetchedNews);
+
+      // لو اللي جالي أقل من 5 يبقى مفيش صفحات تاني
+      bool hasMore = fetchedNews.length == 5;
+
+      emit(GetNewsSuccess(newsList: currentList, hasMore: hasMore));
     } catch (error) {
-      errorMessage = error.toString();
-      return [];
-    } finally {
-      isLoading = false;
-      notifyListeners();
+      emit(GetNewsError(error.toString()));
     }
   }
 
   void clearNews() {
-    newsList.clear();
-    notifyListeners();
+    emit(NewsInitial());
   }
 }

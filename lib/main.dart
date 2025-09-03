@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:news/shared/app_theme.dart';
 import 'package:news/home/view/screens/home_screen.dart';
+import 'package:news/shared/widgets/app_bloc_observer.dart';
 
 void main() {
+  Bloc.observer = AppBlocObserver();
   runApp(NewsApp());
 }
 

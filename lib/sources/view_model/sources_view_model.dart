@@ -1,33 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:news/sources/data/data_sources/sources_data_source.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:news/shared/service_locator.dart';
 import 'package:news/sources/data/models/source.dart';
-import 'package:news/sources/data/models/sources_response.dart';
+import 'package:news/sources/data/repositories/sources_repository.dart';
+import 'package:news/sources/view_model/sources_states.dart';
 
-class SourcesViewModel with ChangeNotifier {
-  SourcesDataSource dataSource = SourcesDataSource();
-  List<Source> sources = [];
-  String? errorMessage;
-  bool isLoading = false;
+class SourcesViewModel extends Cubit<SourcesState> {
+  late SourcesRepository repository;
+  SourcesViewModel() : super(SourcesInitial()) {
+    repository = SourcesRepository(ServiceLocator.sourcesDataSource);
+  }
 
   Future<void> getSources(String categoryId) async {
-    isLoading = true;
-    errorMessage = null;
-    notifyListeners(); // تحديث UI فورًا للـ loading
-
+    emit(GetSourcesLoading());
     try {
-      SourcesResponse response = await dataSource.getSources(categoryId);
-      print("✅ Sources in ViewModel: ${response.sources?.length}");
-
-      if (response.status == 'ok' && response.sources != null) {
-        sources = response.sources!;
-      } else {
-        errorMessage = 'Failed to get sources';
-      }
+      List<Source> sources = await repository.getSources(categoryId);
+      emit(GetSourcesSuccess(sources));
     } catch (error) {
-      errorMessage = error.toString();
+      emit(GetSourcesError(error.toString()));
     }
-
-    isLoading = false;
-    notifyListeners(); // تحديث UI بعد انتهاء الـ fetch
   }
 }
